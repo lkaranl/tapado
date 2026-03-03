@@ -284,7 +284,11 @@ fn update_hud(
     // Epsilon
     let eps = qtable.epsilon;
     if let Ok(mut text) = q_epsilon.get_single_mut() {
-        text.0 = format!("{:.3}", eps);
+        if let Some(ep) = stats.epsilon_converged_at {
+            text.0 = format!("{:.3} (no Ep. {})", eps, ep);
+        } else {
+            text.0 = format!("{:.3}", eps);
+        }
     }
 
     // Barra de epsilon

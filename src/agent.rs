@@ -14,6 +14,7 @@ pub struct AgentStats {
     pub best_steps: u32,
     pub last_event: AgentEvent,
     pub crash_flash: f32, // timer do flash vermelho
+    pub epsilon_converged_at: Option<u32>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -32,6 +33,7 @@ impl Default for AgentStats {
             best_steps: u32::MAX,
             last_event: AgentEvent::Normal,
             crash_flash: 0.0,
+            epsilon_converged_at: None,
         }
     }
 }
@@ -198,7 +200,13 @@ fn agent_step(
             transform.translation = grid_to_world(0, 0).with_z(1.0);
 
             // Decair epsilon
+            let was_converged = qtable.epsilon <= crate::qlearning::EPSILON_MIN;
             qtable.decay_epsilon();
+            
+            // Registra quando atingiu o piso (e só registra a 1ª vez)
+            if !was_converged && qtable.epsilon <= crate::qlearning::EPSILON_MIN && stats.epsilon_converged_at.is_none() {
+                stats.epsilon_converged_at = Some(stats.episode);
+            }
         }
     }
 }
