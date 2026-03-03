@@ -31,6 +31,8 @@ pub struct QTable {
     pub gamma: f32,
     epsilon_min: f32,
     epsilon_decay: f32,
+ 
+    pub epsilon_start: f32,
 }
 
 impl Default for QTable {
@@ -42,6 +44,7 @@ impl Default for QTable {
             gamma: Q_GAMMA,
             epsilon_min: EPSILON_MIN,
             epsilon_decay: EPSILON_DECAY,
+            epsilon_start: EPSILON_START,
         }
     }
 }
@@ -76,6 +79,17 @@ impl QTable {
 
     pub fn decay_epsilon(&mut self) {
         self.epsilon = (self.epsilon - self.epsilon_decay).max(self.epsilon_min);
+    }
+
+    /// Atualiza hiperparâmetros em tempo real sem apagar a Q-Table
+    pub fn set_params(&mut self, alpha: f32, gamma: f32, epsilon_start: f32, epsilon_min: f32, epsilon_decay: f32) {
+        self.alpha = alpha;
+        self.gamma = gamma;
+        self.epsilon_start = epsilon_start;
+        self.epsilon_min = epsilon_min;
+        self.epsilon_decay = epsilon_decay;
+        // Garante que o epsilon atual respeite o novo mínimo
+        self.epsilon = self.epsilon.max(epsilon_min);
     }
 }
 

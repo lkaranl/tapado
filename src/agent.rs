@@ -4,7 +4,7 @@ use crate::grid::{
     grid_to_world, CellType, GridMap, TrailCell, COLOR_AGENT, COLOR_AGENT_CRASH, COLOR_TRAIL,
     GRID_H, GRID_W,
 };
-use crate::qlearning::{pick_action, update_qtable, Action, QTable};
+use crate::qlearning::{pick_action, update_qtable, Action, QTable, Q_ALPHA, Q_GAMMA, EPSILON_START, EPSILON_MIN, EPSILON_DECAY};
 
 #[derive(Resource)]
 pub struct AgentStats {
@@ -47,6 +47,32 @@ pub struct TurboMode(pub u32);
 #[derive(Resource)]
 pub struct Paused(pub bool);
 
+/// Hiperparâmetros editáveis em tempo real via painel (tecla P)
+#[derive(Resource)]
+pub struct HyperParams {
+    pub alpha: f32,
+    pub gamma: f32,
+    pub epsilon_start: f32,
+    pub epsilon_min: f32,
+    pub epsilon_decay: f32,
+    pub selected: usize, // 0=alpha, 1=gamma, 2=eps_start, 3=eps_min, 4=eps_decay
+    pub visible: bool,
+}
+
+impl Default for HyperParams {
+    fn default() -> Self {
+        HyperParams {
+            alpha: Q_ALPHA,
+            gamma: Q_GAMMA,
+            epsilon_start: EPSILON_START,
+            epsilon_min: EPSILON_MIN,
+            epsilon_decay: EPSILON_DECAY,
+            selected: 0,
+            visible: false,
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct AgentMarker {
     pub x: usize,
@@ -64,6 +90,7 @@ pub struct AgentPlugin;
 impl Plugin for AgentPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<AgentStats>()
+            .init_resource::<HyperParams>()
             .insert_resource(StepTimer(Timer::from_seconds(
                 STEP_INTERVAL_NORMAL,
                 TimerMode::Repeating,
@@ -100,6 +127,10 @@ fn handle_input(
     mut turbo: ResMut<TurboMode>,
     mut paused: ResMut<Paused>,
     mut timer: ResMut<StepTimer>,
+    mut qtable: ResMut<QTable>,
+    mut stats: ResMut<AgentStats>,
+    mut params: ResMut<HyperParams>,
+    mut agent_q: Query<(&mut AgentMarker, &mut Transform)>,
 ) {
     if keys.just_pressed(KeyCode::KeyT) {
         turbo.0 = (turbo.0 + 1) % 7;
@@ -118,6 +149,71 @@ fn handle_input(
 
     if keys.just_pressed(KeyCode::Space) {
         paused.0 = !paused.0;
+    }
+
+    // --- Painel de parâmetros ---
+    if keys.just_pressed(KeyCode::KeyP) {
+        params.visible = !params.visible;
+    }
+
+    if params.visible {
+        // Navegar entre parâmetros
+        if keys.just_pressed(KeyCode::ArrowUp) {
+            params.selected = params.selected.saturating_sub(1);
+        }
+        if keys.just_pressed(KeyCode::ArrowDown) {
+            params.selected = (params.selected + 1).min(4);
+        }
+
+        // Incremento de cada parâmetro
+        let delta = match params.selected {
+            0 => 0.01,  // alpha
+            1 => 0.01,  // gamma
+            2 => 0.05,  // epsilon_start
+            3 => 0.001, // epsilon_min
+            4 => 0.0001,// epsilon_decay
+            _ => 0.01,
+        };
+
+        if keys.just_pressed(KeyCode::ArrowRight) {
+            match params.selected {
+                0 => params.alpha = (params.alpha + delta).min(1.0),
+                1 => params.gamma = (params.gamma + delta).min(0.9999),
+                2 => params.epsilon_start = (params.epsilon_start + delta).min(1.0),
+                3 => params.epsilon_min = (params.epsilon_min + delta).min(params.epsilon_start),
+                4 => params.epsilon_decay = (params.epsilon_decay + delta).min(0.1),
+                _ => {}
+            }
+            qtable.set_params(params.alpha, params.gamma, params.epsilon_start, params.epsilon_min, params.epsilon_decay);
+        }
+
+        if keys.just_pressed(KeyCode::ArrowLeft) {
+            match params.selected {
+                0 => params.alpha = (params.alpha - delta).max(0.001),
+                1 => params.gamma = (params.gamma - delta).max(0.0),
+                2 => params.epsilon_start = (params.epsilon_start - delta).max(0.0),
+                3 => params.epsilon_min = (params.epsilon_min - delta).max(0.0),
+                4 => params.epsilon_decay = (params.epsilon_decay - delta).max(0.0001),
+                _ => {}
+            }
+            qtable.set_params(params.alpha, params.gamma, params.epsilon_start, params.epsilon_min, params.epsilon_decay);
+        }
+    }
+
+    if keys.just_pressed(KeyCode::KeyR) {
+        // Resetar Q-Table usando parâmetros atuais do painel
+        let mut new_qtable = QTable::default();
+        new_qtable.set_params(params.alpha, params.gamma, params.epsilon_start, params.epsilon_min, params.epsilon_decay);
+        new_qtable.epsilon = params.epsilon_start;
+        *qtable = new_qtable;
+        // Resetar estatísticas
+        *stats = AgentStats::default();
+        // Resetar posição do agente
+        if let Ok((mut agent, mut transform)) = agent_q.get_single_mut() {
+            agent.x = 0;
+            agent.y = 0;
+            transform.translation = grid_to_world(0, 0).with_z(1.0);
+        }
     }
 }
 

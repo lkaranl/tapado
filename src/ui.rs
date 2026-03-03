@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::agent::{AgentEvent, AgentStats, Paused, TurboMode};
+use crate::agent::{AgentEvent, AgentStats, HyperParams, Paused, TurboMode};
 use crate::qlearning::QTable;
 
 // Marcadores de texto do HUD
@@ -19,12 +19,19 @@ pub struct HudStatus;
 #[derive(Component)]
 pub struct HudEpsilonBar;
 
+// Overlays do Painel de Parâmetros
+#[derive(Component)]
+pub struct HudParamsOverlay;
+#[derive(Component)]
+pub struct HudParamRow(pub usize); // índice 0-4
+
 pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_hud)
-            .add_systems(Update, update_hud);
+            .add_systems(Update, update_hud)
+            .add_systems(Update, update_params_panel);
     }
 }
 
@@ -247,6 +254,58 @@ fn setup_hud(mut commands: Commands) {
         TextColor(Color::srgba(0.5, 0.5, 0.7, 0.8)),
         Transform::from_xyz(PANEL_X, -270.0, 0.9),
     ));
+    commands.spawn((
+        Text2d::new("[R] Reiniciar do zero"),
+        TextFont {
+            font_size: 12.0,
+            ..default()
+        },
+        TextColor(Color::srgba(0.9, 0.4, 0.4, 0.9)),
+        Transform::from_xyz(PANEL_X, -288.0, 0.9),
+    ));
+    commands.spawn((
+        Text2d::new("[P] Parametros  setas ajustam"),
+        TextFont {
+            font_size: 12.0,
+            ..default()
+        },
+        TextColor(Color::srgba(0.4, 0.8, 0.9, 0.9)),
+        Transform::from_xyz(PANEL_X, -306.0, 0.9),
+    ));
+
+    // ---- Overlay de Parâmetros (começa escondido) ----
+    // Fundo do overlay (painel semitransparente, sobre o grid)
+    let overlay_x = 0.0; // centrado sobre o grid
+    let overlay_y = 80.0;
+    commands.spawn((
+        Sprite {
+            color: Color::srgba(0.04, 0.05, 0.12, 0.93),
+            custom_size: Some(Vec2::new(340.0, 200.0)),
+            ..default()
+        },
+        Transform::from_xyz(overlay_x, overlay_y, 5.0),
+        Visibility::Hidden,
+        HudParamsOverlay,
+    ));
+
+    // Título do overlay
+    let param_names = [
+        ("ALPHA       (taxa aprendizado)", 0),
+        ("GAMMA       (fator desconto)  ", 1),
+        ("EPS START   (inicio explor.)  ", 2),
+        ("EPS MIN     (piso minimo)     ", 3),
+        ("EPS DECAY   (queda/episodio)  ", 4),
+    ];
+    for (label, i) in &param_names {
+        commands.spawn((
+            Text2d::new(label.to_string()),
+            TextFont { font_size: 14.0, ..default() },
+            TextColor(Color::srgb(0.6, 0.6, 0.8)),
+            Transform::from_xyz(overlay_x, overlay_y + 60.0 - (*i as f32) * 30.0, 5.2),
+            Visibility::Hidden,
+            HudParamRow(*i),
+        ));
+    }
 }
 
 fn update_hud(
@@ -334,5 +393,64 @@ fn update_hud(
             (false, 6) => "TURBO 5000x".to_string(),
             (false, _) => String::new(),
         };
+    }
+}
+
+fn update_params_panel(
+    params: Res<HyperParams>,
+    mut overlay_q: Query<&mut Visibility, (With<HudParamsOverlay>, Without<HudParamRow>)>,
+    mut rows_q: Query<(&mut Text2d, &mut TextColor, &mut Visibility, &HudParamRow), Without<HudParamsOverlay>>,
+) {
+    // Mostra/oculta o fundo do overlay
+    if let Ok(mut vis) = overlay_q.get_single_mut() {
+        *vis = if params.visible { Visibility::Visible } else { Visibility::Hidden };
+    }
+
+    // Valores atuais de cada parâmetro
+    let values = [
+        params.alpha,
+        params.gamma,
+        params.epsilon_start,
+        params.epsilon_min,
+        params.epsilon_decay,
+    ];
+    let labels = [
+        "ALPHA      ",
+        "GAMMA      ",
+        "EPS START  ",
+        "EPS MIN    ",
+        "EPS DECAY  ",
+    ];
+    let hints = [
+        "(taxa aprendizado)",
+        "(fator desconto)  ",
+        "(inicio explor.)  ",
+        "(piso minimo)     ",
+        "(queda/episodio)  ",
+    ];
+
+    for (mut text, mut color, mut vis, row) in rows_q.iter_mut() {
+        *vis = if params.visible { Visibility::Visible } else { Visibility::Hidden };
+
+        if params.visible {
+            let i = row.0;
+            let selected = i == params.selected;
+            let prefix = if selected { "> " } else { "  " };
+
+            // Precisão variável por parâmetro 
+            let val_str = if i == 4 {
+                format!("{:.4}", values[i])
+            } else {
+                format!("{:.3}", values[i])
+            };
+
+            text.0 = format!("{}{} {}  {}", prefix, labels[i], val_str, hints[i]);
+
+            color.0 = if selected {
+                Color::srgb(0.965, 0.788, 0.055) // dourado
+            } else {
+                Color::srgb(0.6, 0.6, 0.85)
+            };
+        }
     }
 }
