@@ -1,8 +1,7 @@
 use bevy::prelude::*;
 
 use crate::grid::{
-    grid_to_world, CellType, GridMap, TrailCell, COLOR_AGENT, COLOR_AGENT_CRASH, COLOR_TRAIL,
-    GRID_H, GRID_W,
+    CellType, GridMap, TrailCell, COLOR_AGENT, COLOR_AGENT_CRASH, COLOR_TRAIL,
 };
 use crate::qlearning::{pick_action, update_qtable, Action, QTable, Q_ALPHA, Q_GAMMA, EPSILON_START, EPSILON_MIN, EPSILON_DECAY};
 
@@ -79,7 +78,6 @@ pub struct AgentMarker {
     pub y: usize,
 }
 
-const MAX_STEPS: u32 = 200;
 const STEP_INTERVAL_NORMAL: f32 = 0.12;
 const REWARD_GOAL: f32 = 100.0;
 const REWARD_WALL: f32 = -10.0;
@@ -109,12 +107,12 @@ impl Plugin for AgentPlugin {
     }
 }
 
-fn spawn_agent(mut commands: Commands) {
-    let pos = grid_to_world(0, 0);
+fn spawn_agent(mut commands: Commands, grid: Res<GridMap>) {
+    let pos = grid.to_world(0, 0);
     commands.spawn((
         Sprite {
             color: COLOR_AGENT,
-            custom_size: Some(Vec2::splat(38.0)),
+            custom_size: Some(Vec2::splat(grid.cell_size * 0.7)),
             ..default()
         },
         Transform::from_translation(pos.with_z(1.0)),
@@ -131,6 +129,7 @@ fn handle_input(
     mut stats: ResMut<AgentStats>,
     mut params: ResMut<HyperParams>,
     mut agent_q: Query<(&mut AgentMarker, &mut Transform)>,
+    grid: Res<GridMap>,
 ) {
     if keys.just_pressed(KeyCode::KeyT) {
         turbo.0 = (turbo.0 + 1) % 7;
@@ -212,7 +211,7 @@ fn handle_input(
         if let Ok((mut agent, mut transform)) = agent_q.get_single_mut() {
             agent.x = 0;
             agent.y = 0;
-            transform.translation = grid_to_world(0, 0).with_z(1.0);
+            transform.translation = grid.to_world(0, 0).with_z(1.0);
         }
     }
 }
@@ -241,7 +240,7 @@ fn agent_step(
         let (nx, ny) = apply_action(agent.x, agent.y, action);
 
         // Verificar limites e paredes
-        let valid = nx < GRID_W && ny < GRID_H && grid.is_walkable(nx, ny);
+        let valid = nx < grid.width && ny < grid.height && grid.is_walkable(nx, ny);
 
         let (next_state, reward, done) = if !valid {
             // Bateu na parede ou saiu dos limites
@@ -253,11 +252,11 @@ fn agent_step(
             let cell = grid.cell(nx, ny);
 
             // Deixar trilha
-            let trail_pos = grid_to_world(agent.x, agent.y).with_z(0.5);
+            let trail_pos = grid.to_world(agent.x, agent.y).with_z(0.5);
             commands.spawn((
                 Sprite {
                     color: COLOR_TRAIL,
-                    custom_size: Some(Vec2::splat(52.0)),
+                    custom_size: Some(Vec2::splat(grid.cell_size * 0.95)),
                     ..default()
                 },
                 Transform::from_translation(trail_pos),
@@ -266,7 +265,7 @@ fn agent_step(
 
             agent.x = nx;
             agent.y = ny;
-            transform.translation = grid_to_world(nx, ny).with_z(1.0);
+            transform.translation = grid.to_world(nx, ny).with_z(1.0);
 
             if cell == CellType::Goal {
                 stats.last_event = AgentEvent::GoalReached;
@@ -285,7 +284,8 @@ fn agent_step(
         stats.steps += 1;
 
         // Fim de episódio
-        if done || stats.steps >= MAX_STEPS {
+        let max_steps = (grid.width * grid.height) as u32 * 2;
+        if done || stats.steps >= max_steps {
             stats.episode += 1;
             stats.steps = 0;
             stats.total_reward = 0.0;
@@ -293,7 +293,7 @@ fn agent_step(
             // Resetar agente para origem
             agent.x = 0;
             agent.y = 0;
-            transform.translation = grid_to_world(0, 0).with_z(1.0);
+            transform.translation = grid.to_world(0, 0).with_z(1.0);
 
             // Decair epsilon
             let was_converged = qtable.epsilon <= crate::qlearning::EPSILON_MIN;

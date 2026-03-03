@@ -1,10 +1,8 @@
 use bevy::prelude::*;
+use rand::Rng;
 
-pub const GRID_W: usize = 10;
-pub const GRID_H: usize = 10;
-pub const CELL_SIZE: f32 = 54.0;
-pub const GRID_OFFSET_X: f32 = -360.0;
-pub const GRID_OFFSET_Y: f32 = -243.0;
+pub const GRID_W: usize = 50;
+pub const GRID_H: usize = 50;
 
 // Paleta de cores
 pub const COLOR_EMPTY: Color = Color::srgb(0.118, 0.129, 0.188);
@@ -23,26 +21,73 @@ pub enum CellType {
 
 #[derive(Resource)]
 pub struct GridMap {
-    pub cells: [[CellType; GRID_W]; GRID_H],
+    pub width: usize,
+    pub height: usize,
+    pub cell_size: f32,
+    pub offset_x: f32,
+    pub offset_y: f32,
+    pub cells: Vec<Vec<CellType>>,
 }
 
 impl Default for GridMap {
     fn default() -> Self {
-        use CellType::*;
-        #[rustfmt::skip]
-        let cells = [
-            [Empty, Empty, Empty, Wall,  Empty, Empty, Empty, Empty, Empty, Empty],
-            [Empty, Wall,  Empty, Wall,  Empty, Wall,  Wall,  Empty, Empty, Empty],
-            [Empty, Wall,  Empty, Empty, Empty, Empty, Wall,  Empty, Wall,  Empty],
-            [Empty, Empty, Empty, Wall,  Wall,  Empty, Empty, Empty, Wall,  Empty],
-            [Empty, Wall,  Wall,  Empty, Empty, Empty, Wall,  Empty, Empty, Empty],
-            [Empty, Empty, Empty, Empty, Wall,  Empty, Wall,  Wall,  Empty, Empty],
-            [Empty, Wall,  Empty, Empty, Empty, Empty, Empty, Empty, Wall,  Empty],
-            [Empty, Wall,  Empty, Wall,  Wall,  Empty, Wall,  Empty, Empty, Empty],
-            [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Wall,  Empty, Empty],
-            [Empty, Empty, Wall,  Empty, Empty, Empty, Empty, Empty, Empty, Goal ],
-        ];
-        GridMap { cells }
+        let available_w = 680.0;
+        let available_h = 600.0;
+        
+        let cell_w = available_w / GRID_W as f32;
+        let cell_h = available_h / GRID_H as f32;
+        let cell_size = cell_w.min(cell_h).min(60.0);
+        
+        let total_w = cell_size * GRID_W as f32;
+        let total_h = cell_size * GRID_H as f32;
+        
+        let center_x = -130.0;
+        let center_y = 0.0;
+        
+        let offset_x = center_x - (total_w / 2.0) + (cell_size / 2.0);
+        let offset_y = center_y - (total_h / 2.0) + (cell_size / 2.0);
+
+        let mut cells = vec![vec![CellType::Empty; GRID_W]; GRID_H];
+
+        if GRID_W == 10 && GRID_H == 10 {
+            use CellType::*;
+            #[rustfmt::skip]
+            let static_cells = [
+                [Empty, Empty, Empty, Wall,  Empty, Empty, Empty, Empty, Empty, Empty],
+                [Empty, Wall,  Empty, Wall,  Empty, Wall,  Wall,  Empty, Empty, Empty],
+                [Empty, Wall,  Empty, Empty, Empty, Empty, Wall,  Empty, Wall,  Empty],
+                [Empty, Empty, Empty, Wall,  Wall,  Empty, Empty, Empty, Wall,  Empty],
+                [Empty, Wall,  Wall,  Empty, Empty, Empty, Wall,  Empty, Empty, Empty],
+                [Empty, Empty, Empty, Empty, Wall,  Empty, Wall,  Wall,  Empty, Empty],
+                [Empty, Wall,  Empty, Empty, Empty, Empty, Empty, Empty, Wall,  Empty],
+                [Empty, Wall,  Empty, Wall,  Wall,  Empty, Wall,  Empty, Empty, Empty],
+                [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Wall,  Empty, Empty],
+                [Empty, Empty, Wall,  Empty, Empty, Empty, Empty, Empty, Empty, Goal ],
+            ];
+            cells = static_cells.iter().map(|row| row.to_vec()).collect();
+        } else {
+            let mut rng = rand::thread_rng();
+            for y in 0..GRID_H {
+                for x in 0..GRID_W {
+                    if (x == 0 && y == 0) || (x == GRID_W - 1 && y == GRID_H - 1) {
+                        continue;
+                    }
+                    if rng.gen_bool(0.20) {
+                        cells[y][x] = CellType::Wall;
+                    }
+                }
+            }
+            cells[GRID_H - 1][GRID_W - 1] = CellType::Goal;
+        }
+
+        Self {
+            width: GRID_W,
+            height: GRID_H,
+            cell_size,
+            offset_x,
+            offset_y,
+            cells,
+        }
     }
 }
 
@@ -53,6 +98,14 @@ impl GridMap {
 
     pub fn is_walkable(&self, x: usize, y: usize) -> bool {
         self.cells[y][x] != CellType::Wall
+    }
+
+    pub fn to_world(&self, x: usize, y: usize) -> Vec3 {
+        Vec3::new(
+            self.offset_x + x as f32 * self.cell_size,
+            self.offset_y + y as f32 * self.cell_size,
+            0.0,
+        )
     }
 }
 
@@ -80,29 +133,21 @@ impl Plugin for GridPlugin {
     }
 }
 
-pub fn grid_to_world(x: usize, y: usize) -> Vec3 {
-    Vec3::new(
-        GRID_OFFSET_X + x as f32 * CELL_SIZE,
-        GRID_OFFSET_Y + y as f32 * CELL_SIZE,
-        0.0,
-    )
-}
-
 fn setup_grid(mut commands: Commands, grid: Res<GridMap>) {
-    for y in 0..GRID_H {
-        for x in 0..GRID_W {
+    for y in 0..grid.height {
+        for x in 0..grid.width {
             let cell_type = grid.cell(x, y);
             let color = match cell_type {
                 CellType::Empty => COLOR_EMPTY,
                 CellType::Wall => COLOR_WALL,
                 CellType::Goal => COLOR_GOAL,
             };
-            let pos = grid_to_world(x, y);
+            let pos = grid.to_world(x, y);
 
             let mut entity = commands.spawn((
                 Sprite {
                     color,
-                    custom_size: Some(Vec2::splat(CELL_SIZE - 2.0)),
+                    custom_size: Some(Vec2::splat(grid.cell_size - 2.0)),
                     ..default()
                 },
                 Transform::from_translation(pos),
