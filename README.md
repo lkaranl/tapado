@@ -98,3 +98,40 @@ Porém, do ponto de vista do **Aprendizado de Máquina**, ele "Ganha o Jogo" qua
 1. **A Q-Table se estabilizou:** As contas da equação de Bellman não alteram mais drasticamente os valores das notas (o agente sabe de tudo).
 2. **Epsilon mínimo bateu no piso:** Ele parou a fase de Exploração Caótica e entrou no modo Matemático Puro (Ganância).
 3. E, visualmente no simulador: Você passa a observar o agente nascer no canto esquerdo da tela e voar numa linha ininterrupta e robótica de passos exatos e curtos até a linha de chegada dezenas de vezes em sequência sem desvio falho. (Isso costuma ocorrer entre a 300ª e a 500ª vida no modelo do TAPADO).
+
+---
+
+## ⚡ Métricas de Velocidade (Turbo)
+
+A unidade de medida fundamental do simulador é o **Intervalo entre Passos** (em segundos). Ao ativar o modo Turbo, nós dividimos esse intervalo base, permitindo que o agente tome milhares de decisões matemáticas dentro de um único frame de processamento (60 FPS).
+
+### Entendendo a Velocidade do Agente
+
+Para tornar o aprendizado mais rápido, nós não mudamos a "força" da IA, mas sim diminuímos o tempo que ela gasta "pensando" entre um passo e outro. Funciona assim:
+
+1.  **O Ritmo Natural (`1x`):** 
+    O agente é configurado para esperar **0,12 segundos** entre cada ação. Imagine um metrônomo batendo: nesse ritmo, o agente consegue dar cerca de **8 passos por segundo**.
+
+2.  **Aceleração por Divisão:** 
+    Quando você ativa o Turbo, nós dividimos esse tempo de espera. No **Turbo 8x**, o robô passa a esperar apenas **0,015 segundos**. Como o tempo de espera ficou 8 vezes menor, ele consegue dar 8 vezes mais passos no mesmo segundo (aprox. **66 passos/seg**).
+
+3.  **O Modo "Infinito" (Turbo INF):** 
+    No nível máximo (50.000x), o tempo de espera é reduzido para um valor invisível: **0,0000024 segundos**. 
+    Nesse modo, o agente tenta realizar mais de **416 mil cálculos por segundo**. É tanta velocidade que o robô parece "teletransportar" pelo mapa, processando milhares de tentativas de uma só vez entre cada atualização da tela.
+
+Abaixo está a tabela comparativa:
+
+| Modo Turbo | Multiplicador | Intervalo (Segundos) | **Passos por Segundo (SPS)** |
+| :--- | :--- | :--- | :--- |
+| **Normal (0x)** | 1.0 | 0.12s | **~8** |
+| **8x** | 8.0 | 0.015s | **~66** |
+| **16x** | 16.0 | 0.0075s | **~133** |
+| **32x** | 32.0 | 0.00375s | **~266** |
+| **64x** | 64.0 | 0.00187s | **~533** |
+| **1000x** | 1.000,0 | 0.00012s | **~8.333** |
+| **5000x** | 5.000,0 | 0.000024s | **~41.666** |
+| **10000x** | 10.000,0 | 0.000012s | **~83.333** |
+| **INF (50k)** | 50.000,0 | 0.0000024s | **~416.666** |
+
+> [!NOTE]
+> Os valores de SPS acima de 5.000 são teóricos e dependem puramente da potência da sua CPU (como o Mac M4). No modo INF, o agente processa quase **meio milhão de decisões por segundo**, o que torna o treinamento em grades gigantes (como 150x150) extremamente rápido.
