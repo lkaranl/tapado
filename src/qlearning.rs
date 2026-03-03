@@ -20,7 +20,7 @@ type State = (usize, usize);
 pub const Q_ALPHA: f32 = 0.15;         // Taxa de aprendizado (quão rápido aceita novas informações)
 pub const Q_GAMMA: f32 = 0.99;         // Fator de desconto (importância das recompensas futuras)
 pub const EPSILON_START: f32 = 1.0;    // Taxa de exploração inicial (1.0 = 100% aleatório)
-pub const EPSILON_MIN: f32 = 0.9;     // Menor taxa possível de exploração (ex: 5%)
+pub const EPSILON_MIN: f32 = 0.0000000000000001;      // Menor taxa possível de exploração (ex: 5%)
 pub const EPSILON_DECAY: f32 = 0.0015; // O quanto cai a cada episódio
 
 #[derive(Resource)]

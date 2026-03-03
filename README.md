@@ -55,6 +55,24 @@ pub const EPSILON_START: f32 = 1.0;    // Taxa de exploração inicial
 pub const EPSILON_MIN: f32 = 0.05;     // Piso mínimo de exploração
 pub const EPSILON_DECAY: f32 = 0.0015; // Decaimento por episódio
 ```
+
+### O que significa cada um?
+
+- **`Q_ALPHA` (Taxa de Aprendizado):** Determina o quanto o agente confia em uma *nova* informação em detrimento do que ele já sabia antes.
+  - Se for **0.0**, ele não aprende nada de novo.
+  - Se for **1.0**, ele esquece tudo o que sabia e só confia no que acabou de descobrir (fica muito instável no aprendizado).
+  - Em **0.15**, há um equilíbrio perfeito onde a memória antiga é pesada harmoniosamente com a nova experiência.
+
+- **`Q_GAMMA` (Fator de Desconto):** Define quão "míope" ou "visionário" o agente é.
+  - Se for **0.0**, ele só liga para a recompensa imediata (nunca acharia o fim do labirinto).
+  - Se for perto de **1.0 (ex: 0.99)**, ele entende que a recompensa final de ouro é valiosa, criando um "rastro de valor" que puxa ele do ínicio ao fim num caminho ininterrupto. Sem esse 0.99, o agente ficaria andando em círculos.
+
+- **`EPSILON_START`:** A probabilidade do agente fazer uma ação 100% aleatória no seu primeiro segundo de vida. (`1.0 = 100%`). Em 100%, ele parece um robô quebrado batendo na parede. Isso é vital para que ele possa mapear cada canto do mundo.
+
+- **`EPSILON_MIN`:** O piso duro do processo. Depois de muitas mortes, sua taxa de ações aleatórias vai decair, mas ela deve parar em algum lugar. Com `0.05`, significa que _mesmo depois_ de alcançar maestria e o nível de gênio, ele ainda reserva 5% de chance de dar um "passo maluco". Isso impede o agente de ficar viciado num caminho que encontrou cedo, mas que talvez não seja o melhor. Se você colocar `0.000001`, ele vai atingir um caminho ótimo global absoluto!
+
+- **`EPSILON_DECAY`:** O quão rápido a aleatoriedade (Epsilon) perde força. Em `0.0015`, quer dizer que após aproximadamente 600 vidas vivendo caoticamente, ele chega à "maturidade", onde não chuta mais e vira puramente ganancioso em seus cálculos.
+
 Você pode brincar com esses valores para ver se ela converge mais rápido ou se fica presa em becos sem saída!
 
 ---
@@ -64,8 +82,8 @@ Você pode brincar com esses valores para ver se ela converge mais rápido ou se
 Como a matemática da matriz Q-Learning em memória é extremamente leve (uma tabela Hash), a renderização da janela é o único gargalo. Para você não precisar esperar horas para o agente convergir, há um sistema em camadas de **Tempo Acelerado (Turbo)**:
 
 - **Tecla `T`:** Alterna ciclicamente entre os níveis de velocidade do mundo.
-  - O ciclo é: `1x (Normal) -> 8x -> 16x -> 32x -> 64x -> 1000x`.
-  - No modo **1000x**, o processador recalcula centenas de passos do agente _por frame_ gráfico da tela (16ms). Teoricamente, você pode treinar até o nível de Gênio em questão de poucos segundos.
+  - O ciclo é: `1x (Normal) -> 8x -> 16x -> 32x -> 64x -> 1000x -> 5000x`.
+  - No modo **5000x**, o processador recalcula quase um episódio inteiro por frame gráfico (16ms). É praticamente instantâneo!
 - **Tecla `Espaço`:** Pausa/Retoma a simulação por completo.
 
 ---

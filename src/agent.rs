@@ -100,7 +100,7 @@ fn handle_input(
     mut timer: ResMut<StepTimer>,
 ) {
     if keys.just_pressed(KeyCode::KeyT) {
-        turbo.0 = (turbo.0 + 1) % 6;
+        turbo.0 = (turbo.0 + 1) % 7;
         let interval = match turbo.0 {
             0 => STEP_INTERVAL_NORMAL,
             1 => STEP_INTERVAL_NORMAL / 8.0,
@@ -108,6 +108,7 @@ fn handle_input(
             3 => STEP_INTERVAL_NORMAL / 32.0,
             4 => STEP_INTERVAL_NORMAL / 64.0,
             5 => STEP_INTERVAL_NORMAL / 1000.0,
+            6 => STEP_INTERVAL_NORMAL / 5000.0,
             _ => STEP_INTERVAL_NORMAL,
         };
         timer.0 = Timer::from_seconds(interval, TimerMode::Repeating);
