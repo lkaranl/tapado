@@ -246,7 +246,7 @@ fn setup_hud(mut commands: Commands) {
         Transform::from_xyz(PANEL_X, -252.0, 0.9),
     ));
     commands.spawn((
-        Text2d::new("[T] Turbo (8/16/32/64/1K/5K/10K/∞)"),
+        Text2d::new("[T] Turbo (8/16/32/64/1K/5K/10K/INF)"),
         TextFont {
             font_size: 12.0,
             ..default()
@@ -343,8 +343,8 @@ fn update_hud(
     // Epsilon
     let eps = qtable.epsilon;
     if let Ok(mut text) = q_epsilon.get_single_mut() {
-        if let Some(ep) = stats.epsilon_converged_at {
-            text.0 = format!("{:.3} (no Ep. {})", eps, ep);
+        if let Some(_ep) = stats.epsilon_converged_at {
+            text.0 = format!("{:.3}", eps);
         } else {
             text.0 = format!("{:.3}", eps);
         }
@@ -392,7 +392,7 @@ fn update_hud(
             (false, 5) => "TURBO 1000x".to_string(),
             (false, 6) => "TURBO 5000x".to_string(),
             (false, 7) => "TURBO 10000x".to_string(),
-            (false, 8) => "TURBO ∞".to_string(),
+            (false, 8) => "TURBO INF".to_string(),
             (false, _) => String::new(),
         };
     }
