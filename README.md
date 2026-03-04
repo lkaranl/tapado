@@ -135,3 +135,9 @@ Abaixo está a tabela comparativa:
 
 > [!NOTE]
 > Os valores de SPS acima de 5.000 são teóricos e dependem puramente da potência da sua CPU (como o Mac M4). No modo INF, o agente processa quase **meio milhão de decisões por segundo**, o que torna o treinamento em grades gigantes (como 150x150) extremamente rápido.
+
+---
+
+## 📄 Licença
+
+Este projeto está sob a licença **GNU General Public License v3.0**. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
